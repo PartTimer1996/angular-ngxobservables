@@ -1,106 +1,82 @@
-import { NgModule, Component } from "@angular/core";
+import { NgModule, Component, OnDestroy } from "@angular/core";
 import { BrowserModule } from "@angular/platform-browser";
 import { platformBrowserDynamic } from "@angular/platform-browser-dynamic";
-import {
-  ReactiveFormsModule,
-  FormGroup,
-  FormControl,
-  Validators,
-  FormBuilder
-} from "@angular/forms";
-import 'rxjs/Rx';
-import { map, filter } from "rxjs/operators";
+import { interval } from "rxjs";
+import { take, map } from "rxjs/operators";
+import {Observable} from 'rxjs';
 
 @Component({
-  selector: "form-app",
-  template: `<form [formGroup]="form"
-      (ngSubmit)="onSubmit()">
+  selector: "async-pipe",
+  template: `
+ <div class="card card-block">
+  <h4 class="card-title">AsyncPipe</h4>
 
-  <!-- Output comment -->
-  <div class="card card-block">
-    <pre class="card-text">{{ form.value.comment }}</pre>
-  </div>
-  <p class="small">{{ form.value.lastUpdateTS }}</p>
-  <!-- Comment text area -->
-  <div class="form-group">
-    <label for="comment">Comment</label>
-    <textarea class="form-control"
-              formControlName="comment"
-              rows="3"></textarea>
-    <small class="form-text text-muted">
-           <span>{{ 100 - form.value.comment.length }}</span> characters left
-    </small>
-  </div>
-  <!-- Name input -->
-  <div class="form-group">
-    <label for="name">Name</label>
-    <input type="text"
-           class="form-control"
-           formControlName="name"
-           placeholder="Enter name">
-  </div>
-  <!-- Email input -->
-  <div class="form-group">
-    <label for="email">Email address</label>
-    <input type="email"
-           class="form-control"
-           formControlName="email"
-           placeholder="Enter email">
-    <small class="form-text text-muted">
-           We'll never share your email with anyone else.
-    </small>
-  </div>
-  <button type="submit"
-          class="btn btn-primary"
-          [disabled]="!form.valid">Submit
-  </button>
-</form>
- `
+  <p class="card-text" ngNonBindable>{{ promise | async }}  </p>
+  <p class="card-text">{{ promise | async }}  </p>
+
+
+ <!-- <p class="card-text" ngNonBindable>{{ observable$ | async }}  </p>
+  <p class="card-text">{{ observable$ | async }}</p> -->
+
+
+  <p class="card-text" ngNonBindable>{{ observableData }}  </p>
+  <p class="card-text">{{ observableData }}</p>
+ </div>
+  `
 })
+class AsyncPipeComponent implements OnDestroy {
+  promise: Promise<{}>;
+  //observable$: Observable<number>;
+  subscription: Object = null;
+  observableData: number;
 
-class FormAppComponent {
-  form: FormGroup; 
-  comment = new FormControl("", Validators.required); 
-  name = new FormControl("", Validators.required);
-  email = new FormControl("", [ 
-    Validators.required,
-    Validators.pattern("[^ @]*@[^ @]*")
-  ]);
+  constructor() {
+    this.promise = this.getPromise();
+    //this.observable$ = this.getObservable();
+    this.subscribeObservable();
+  }
 
-  constructor(fb: FormBuilder) {
-    this.form = fb.group({ 
-      "comment": this.comment,
-      "name": this.name,
-      "email": this.email
+  getObservable() {
+    return interval(1000).pipe(
+      take(10),
+      map(v => v * v)
+    );
+  }
+
+  // AsyncPipe subscribes to the observable automatically
+  subscribeObservable() {
+    this.subscription = this.getObservable().subscribe(
+      v => (this.observableData = v)
+    );
+  }
+
+  getPromise() {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => resolve("Promise complete!"), 3000);
     });
-    this.form.valueChanges
-    .filter(data=> this.form.valid)
-    .map(data => {
-      data.comment = data.comment.replace(/<(?:.|\n)*?>/gm, '');
-      return data
-    })
-    .map(data => { 
-      data.lastUpdateTS = new Date();
-      return data
-    })
-    .subscribe(data => console.log(JSON.stringify(data)));
   }
 
-  onSubmit() {
-    console.log("Form submitted!");
+  // AsyncPipe unsubscribes from the observable automatically
+  ngOnDestroy() {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
   }
-  
 }
 
 @Component({
   selector: "app",
-  template: '<form-app>'
+  template: `
+  <async-pipe></async-pipe>
+ `
 })
-class AppComponent {}
+class AppComponent {
+  imageUrl: string = "";
+}
 
 @NgModule({
-  imports: [BrowserModule, ReactiveFormsModule],
-  declarations: [AppComponent, FormAppComponent],
+  imports: [BrowserModule],
+  declarations: [AppComponent, AsyncPipeComponent],
   bootstrap: [AppComponent]
 })
 class AppModule {}
